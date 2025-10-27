@@ -312,3 +312,179 @@ export class WebSocketDataCache {
     return this.cache.length
   }
 }
+
+/**
+ * 初始化 WebSocket 连接
+ * @param {Object} options - 连接选项
+ * @param {string} options.url - WebSocket 服务器地址
+ * @param {Object} options.state - 组件状态对象
+ * @param {Function} options.onOpen - 连接成功回调
+ * @param {Function} options.onMessage - 消息接收回调
+ * @param {Function} options.onError - 连接错误回调
+ * @param {Function} options.onClose - 连接关闭回调
+ * @param {Object} options.heartbeatManager - 心跳管理器
+ * @param {Object} options.reconnectConfig - 重连配置
+ * @param {Object} options.dataCache - 数据缓存管理器
+ * @returns {WebSocket} WebSocket 实例
+ */
+export const initWebSocketConnection = (options) => {
+  const {
+    url,
+    state,
+    onOpen,
+    onMessage,
+    onError,
+    onClose,
+    heartbeatManager,
+    reconnectConfig,
+    dataCache
+  } = options
+
+  // 重置数据质量指标
+  if (state.resetDataQualityMetrics) {
+    state.resetDataQualityMetrics()
+  }
+
+  // 创建 WebSocket 连接
+  const ws = createWebSocket(url)
+
+  // WebSocket 连接成功
+  ws.onopen = () => {
+    state.isConnecting.value = false
+    state.isConnected.value = true
+    state.status.value = '已连接'
+    state.networkStatus.value = 'online'
+    reconnectConfig.reset()
+
+    if (onOpen) {
+      onOpen()
+    }
+  }
+
+  // WebSocket 接收消息
+  ws.onmessage = (event) => {
+    if (onMessage) {
+      onMessage(event)
+    }
+  }
+
+  // WebSocket 连接错误
+  ws.onerror = (error) => {
+    state.isConnecting.value = false
+    state.status.value = `连接错误: ${error.message}`
+    state.networkStatus.value = 'offline'
+    
+    if (onError) {
+      onError(error)
+    }
+  }
+
+  // WebSocket 连接关闭
+  ws.onclose = (event) => {
+    state.isConnected.value = false
+    state.isConnecting.value = false
+
+    if (event.wasClean) {
+      state.status.value = `连接已关闭: ${event.code} ${event.reason}`
+    } else {
+      state.status.value = '连接意外断开'
+    }
+
+    state.networkStatus.value = 'offline'
+    
+    if (onClose) {
+      onClose(event)
+    }
+  }
+
+  return ws
+}
+
+/**
+ * 断开 WebSocket 连接
+ * @param {Object} options - 断开连接选项
+ * @param {WebSocket} options.ws - WebSocket 实例
+ * @param {Object} options.state - 组件状态对象
+ * @param {Function} options.stopSimulation - 停止模拟函数
+ * @param {Function} options.stopHeartbeat - 停止心跳检测函数
+ * @param {Function} options.stopCacheProcessing - 停止缓存处理函数
+ * @param {Object} options.reconnectConfig - 重连配置
+ */
+export const disconnectWebSocket = (options) => {
+  const {
+    ws,
+    state,
+    stopSimulation,
+    stopHeartbeat,
+    stopCacheProcessing,
+    reconnectConfig
+  } = options
+
+  closeWebSocket(ws)
+
+  state.isConnected.value = false
+  state.isConnecting.value = false
+  state.status.value = '已断开'
+  state.networkStatus.value = 'offline'
+  
+  if (stopSimulation) {
+    stopSimulation()
+  }
+  
+  if (stopHeartbeat) {
+    stopHeartbeat()
+  }
+  
+  if (stopCacheProcessing) {
+    stopCacheProcessing()
+  }
+  
+  reconnectConfig.reset()
+}
+
+/**
+ * 启动心跳检测
+ * @param {Object} options - 心跳检测选项
+ * @param {WebSocket} options.ws - WebSocket 实例
+ * @param {Object} options.heartbeatManager - 心跳管理器
+ * @param {Function} options.sendHeartbeat - 发送心跳包函数
+ * @param {Function} options.onTimeout - 心跳超时回调
+ */
+export const startHeartbeatDetection = (options) => {
+  const {
+    ws,
+    heartbeatManager,
+    sendHeartbeat,
+    onTimeout
+  } = options
+
+  heartbeatManager.stop()
+  heartbeatManager.start(ws, sendHeartbeat, onTimeout)
+}
+
+/**
+ * 处理 WebSocket 重连
+ * @param {Object} options - 重连选项
+ * @param {Function} options.connectFn - 连接函数
+ * @param {Object} options.state - 组件状态对象
+ * @param {Object} options.reconnectConfig - 重连配置
+ */
+export const handleWebSocketReconnect = (options) => {
+  const {
+    connectFn,
+    state,
+    reconnectConfig
+  } = options
+
+  reconnectConfig.attemptReconnect(
+    connectFn,
+    (currentRetries, maxRetries) => {
+      state.status.value = `连接断开，${reconnectConfig.retryDelay/1000}秒后尝试重连 (${currentRetries}/${maxRetries})`
+      state.networkStatus.value = 'offline'
+    },
+    () => {
+      state.status.value = '连接失败，已达到最大重试次数'
+      state.networkStatus.value = 'offline'
+    }
+  )
+}
