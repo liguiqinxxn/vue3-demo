@@ -52,7 +52,7 @@
         <canvas ref="headerCanvasRef" class="header-canvas"></canvas>
       </div>
       <!-- 数据内容 -->
-      <div class="canvas-content" ref="canvasContentWrapperRef">
+      <div class="canvas-content">
         <canvas ref="canvasRef" class="data-canvas"></canvas>
       </div>
     </div>
@@ -134,7 +134,6 @@ export default {
     const listRef = ref(null)
     const canvasRef = ref(null)
     const headerCanvasRef = ref(null)
-    const canvasContentWrapperRef = ref(null)
     
     // 状态管理
     const isConnected = ref(false)
@@ -311,7 +310,7 @@ export default {
         setHeaderCanvasCtxFn: (ctx) => { headerCanvasCtx = ctx },
         setCanvasCtxFn: (ctx) => { canvasCtx = ctx },
         renderHeaderCanvasFn: () => {
-          renderHeaderCanvas(headerCanvasCtx, headerCanvas, viewMode.value)
+          renderHeaderCanvasComponent()
         },
         renderCanvasFn: () => {
           // 启动渲染循环
@@ -733,7 +732,6 @@ export default {
       listRef,
       canvasRef,
       headerCanvasRef,
-      canvasContentWrapperRef,
       isConnected,
       isConnecting,
       isSimulating,

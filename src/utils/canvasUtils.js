@@ -18,27 +18,34 @@ export const renderHeaderCanvas = (headerCanvasCtx, headerCanvas, viewMode) => {
   // 清除画布
   headerCanvasCtx.clearRect(0, 0, headerCanvas.width, headerCanvas.height)
 
+  // 表头高度与CSS中保持一致
+  const headerHeight = 40
+  headerCanvas.height = headerHeight
+
   // 绘制背景
   headerCanvasCtx.fillStyle = '#f5f5f5'
-  headerCanvasCtx.fillRect(0, 0, headerCanvas.width, headerCanvas.height)
+  headerCanvasCtx.fillRect(0, 0, headerCanvas.width, headerHeight)
 
-  // 绘制表头文本
+  // 绘制表头文本 (垂直居中)
   headerCanvasCtx.fillStyle = '#333333'
   headerCanvasCtx.font = '14px Arial'
   headerCanvasCtx.textAlign = 'left'
 
-  // 绘制表头列标题
-  headerCanvasCtx.fillText('序号', 10, 25)
-  headerCanvasCtx.fillText('标题', 60, 25)
-  headerCanvasCtx.fillText('来源', 300, 25)
-  headerCanvasCtx.fillText('时间', 400, 25)
-  headerCanvasCtx.fillText('情感', 500, 25)
+  // 计算文本垂直居中位置
+  const textBaseline = headerHeight / 2 + 5 // 5是字体基线偏移量
 
-  // 绘制分隔线
+  // 绘制表头列标题
+  headerCanvasCtx.fillText('序号', 10, textBaseline)
+  headerCanvasCtx.fillText('标题', 60, textBaseline)
+  headerCanvasCtx.fillText('来源', 300, textBaseline)
+  headerCanvasCtx.fillText('时间', 400, textBaseline)
+  headerCanvasCtx.fillText('情感', 500, textBaseline)
+
+  // 绘制分隔线 (在表头底部)
   headerCanvasCtx.strokeStyle = '#dddddd'
   headerCanvasCtx.beginPath()
-  headerCanvasCtx.moveTo(0, headerCanvas.height - 1)
-  headerCanvasCtx.lineTo(headerCanvas.width, headerCanvas.height - 1)
+  headerCanvasCtx.moveTo(0, headerHeight - 1)
+  headerCanvasCtx.lineTo(headerCanvas.width, headerHeight - 1)
   headerCanvasCtx.stroke()
 
   console.log('表头 Canvas 绘制完成')
@@ -87,7 +94,7 @@ export const renderCanvas = (canvasCtx, canvas, canvasData, scrollTop, viewMode,
   console.log('开始绘制数据行，数据量：', canvasData.length)
 
   // 绘制数据行
-  const rowHeight = 60
+  const rowHeight = 60 // 每行高度，与CSS中的.sentiment-item高度保持一致
   const startY = -scrollTop
   
   // 计算总高度以支持滚动
@@ -109,32 +116,39 @@ export const renderCanvas = (canvasCtx, canvas, canvasData, scrollTop, viewMode,
     const item = canvasData[i]
     const y = startY + (i * rowHeight)
 
-    // 交替行背景色
+    // 交替行背景色 (绘制完整行高)
     if (i % 2 === 0) {
       canvasCtx.fillStyle = '#f8f9fa'
-      canvasCtx.fillRect(0, y - 20, canvas.width, rowHeight)
+      canvasCtx.fillRect(0, y, canvas.width, rowHeight)
+    } else {
+      // 确保奇数行有白色背景
+      canvasCtx.fillStyle = '#ffffff'
+      canvasCtx.fillRect(0, y, canvas.width, rowHeight)
     }
+
+    // 计算文本垂直居中位置 (行高的一半 + 文本基线偏移)
+    const textBaseline = y + rowHeight / 2 + 5 // 5是字体基线偏移量
 
     // 绘制序号
     canvasCtx.fillStyle = '#999999'
     canvasCtx.font = '12px Arial'
     canvasCtx.textAlign = 'left'
-    canvasCtx.fillText((i + 1).toString(), 10, y)
+    canvasCtx.fillText((i + 1).toString(), 10, textBaseline)
 
     // 绘制标题
     canvasCtx.fillStyle = '#333333'
     canvasCtx.font = '14px Arial'
-    canvasCtx.fillText(item.title.length > 30 ? item.title.substring(0, 30) + '...' : item.title, 60, y)
+    canvasCtx.fillText(item.title.length > 30 ? item.title.substring(0, 30) + '...' : item.title, 60, textBaseline)
 
     // 绘制来源
     canvasCtx.fillStyle = '#666666'
     canvasCtx.font = '12px Arial'
-    canvasCtx.fillText(item.source, 300, y)
+    canvasCtx.fillText(item.source, 300, textBaseline)
 
     // 绘制时间
     canvasCtx.fillStyle = '#999999'
     canvasCtx.font = '12px Arial'
-    canvasCtx.fillText(formatTimestampFn(item.timestamp), 400, y)
+    canvasCtx.fillText(formatTimestampFn(item.timestamp), 400, textBaseline)
 
     // 绘制情感
     let sentimentText = ''
@@ -158,21 +172,21 @@ export const renderCanvas = (canvasCtx, canvas, canvasData, scrollTop, viewMode,
         bgColor = '#fafafa'
     }
 
-    // 绘制情感背景
+    // 绘制情感背景 (垂直居中)
     canvasCtx.fillStyle = bgColor
-    canvasCtx.fillRect(500, y - 15, 50, 20)
+    canvasCtx.fillRect(500, y + (rowHeight - 20) / 2, 50, 20)
 
-    // 绘制情感文本
+    // 绘制情感文本 (垂直居中)
     canvasCtx.fillStyle = sentimentColor
     canvasCtx.font = '12px Arial'
     canvasCtx.textAlign = 'center'
-    canvasCtx.fillText(sentimentText, 525, y)
+    canvasCtx.fillText(sentimentText, 525, y + rowHeight / 2 + 5)
 
-    // 绘制分隔线
+    // 绘制分隔线 (在行底部)
     canvasCtx.strokeStyle = '#eeeeee'
     canvasCtx.beginPath()
-    canvasCtx.moveTo(0, y + 20)
-    canvasCtx.lineTo(canvas.width, y + 20)
+    canvasCtx.moveTo(0, y + rowHeight - 1)
+    canvasCtx.lineTo(canvas.width, y + rowHeight - 1)
     canvasCtx.stroke()
   }
 
