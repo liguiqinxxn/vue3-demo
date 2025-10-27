@@ -15,7 +15,7 @@ export default {
     const carouselItemsRef = ref(carouselItems)
     
     // Tab 相关状态
-    const activeTab = ref('carousel')
+    const activeTab = ref('realtime')
     
     // WebSocket 服务器地址
     const wsUrl = ref('ws://localhost:8080/ws')
