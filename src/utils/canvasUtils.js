@@ -9,42 +9,36 @@
  * @param {string} viewMode - 视图模式
  */
 export const renderHeaderCanvas = (headerCanvasCtx, headerCanvas, viewMode) => {
-  console.log('绘制表头 Canvas')
-  if (!headerCanvasCtx || viewMode !== 'canvas') {
-    console.log('表头 Canvas 上下文未找到或视图模式不正确')
+  console.log('渲染表头 Canvas')
+  if (!headerCanvasCtx || !headerCanvas || viewMode !== 'canvas') {
+    console.log('表头 Canvas 上下文或元素未找到或视图模式不正确')
     return
   }
-
-  if (!headerCanvas) {
-    console.log('表头 Canvas 元素未找到')
-    return
-  }
-
-  console.log('表头 Canvas 元素已找到', headerCanvas)
 
   // 清除画布
   headerCanvasCtx.clearRect(0, 0, headerCanvas.width, headerCanvas.height)
 
   // 绘制背景
-  headerCanvasCtx.fillStyle = '#ffffff'
+  headerCanvasCtx.fillStyle = '#f5f5f5'
   headerCanvasCtx.fillRect(0, 0, headerCanvas.width, headerCanvas.height)
 
-  // 绘制表头
-  const headerY = 30
+  // 绘制表头文本
   headerCanvasCtx.fillStyle = '#333333'
-  headerCanvasCtx.font = 'bold 14px Arial'
+  headerCanvasCtx.font = '14px Arial'
   headerCanvasCtx.textAlign = 'left'
-  headerCanvasCtx.fillText('序号', 10, headerY)
-  headerCanvasCtx.fillText('标题', 60, headerY)
-  headerCanvasCtx.fillText('来源', 300, headerY)
-  headerCanvasCtx.fillText('时间', 400, headerY)
-  headerCanvasCtx.fillText('情感', 500, headerY)
+
+  // 绘制表头列标题
+  headerCanvasCtx.fillText('序号', 10, 25)
+  headerCanvasCtx.fillText('标题', 60, 25)
+  headerCanvasCtx.fillText('来源', 300, 25)
+  headerCanvasCtx.fillText('时间', 400, 25)
+  headerCanvasCtx.fillText('情感', 500, 25)
 
   // 绘制分隔线
   headerCanvasCtx.strokeStyle = '#dddddd'
   headerCanvasCtx.beginPath()
-  headerCanvasCtx.moveTo(0, headerY + 10)
-  headerCanvasCtx.lineTo(headerCanvas.width, headerY + 10)
+  headerCanvasCtx.moveTo(0, headerCanvas.height - 1)
+  headerCanvasCtx.lineTo(headerCanvas.width, headerCanvas.height - 1)
   headerCanvasCtx.stroke()
 
   console.log('表头 Canvas 绘制完成')
@@ -95,6 +89,14 @@ export const renderCanvas = (canvasCtx, canvas, canvasData, scrollTop, viewMode,
   // 绘制数据行
   const rowHeight = 60
   const startY = -scrollTop
+  
+  // 计算总高度以支持滚动
+  const totalHeight = canvasData.length * rowHeight
+  
+  // 设置canvas元素的高度以支持滚动
+  if (canvas.height < totalHeight) {
+    canvas.height = totalHeight
+  }
 
   // 计算可见行数
   const visibleRows = Math.ceil(canvas.height / rowHeight) + 2
@@ -105,7 +107,7 @@ export const renderCanvas = (canvasCtx, canvas, canvasData, scrollTop, viewMode,
 
   for (let i = startRow; i < endRow; i++) {
     const item = canvasData[i]
-    const y = startY + (i * rowHeight) // 修复：移除不必要的 +1
+    const y = startY + (i * rowHeight)
 
     // 交替行背景色
     if (i % 2 === 0) {
@@ -202,40 +204,29 @@ export const handleCanvasScroll = (event, setScrollTopFn, renderCanvasFn, canvas
  * 初始化 Canvas
  * @param {Object} options - 初始化选项
  * @param {HTMLCanvasElement} options.canvas - 数据 Canvas 元素
- * @param {HTMLCanvasElement} options.headerCanvas - 表头 Canvas 元素
- * @param {Function} options.setHeaderCanvasCtxFn - 设置表头 Canvas 上下文的函数
  * @param {Function} options.setCanvasCtxFn - 设置数据 Canvas 上下文的函数
- * @param {Function} options.renderHeaderCanvasFn - 渲染表头 Canvas 的函数
  * @param {Function} options.renderCanvasFn - 渲染数据 Canvas 的函数
  */
 export const initializeCanvas = (options) => {
   const {
     canvas,
-    headerCanvas,
-    setHeaderCanvasCtxFn,
     setCanvasCtxFn,
-    renderHeaderCanvasFn,
     renderCanvasFn
   } = options
 
-  console.log('获取到的 Canvas 元素:', canvas, headerCanvas)
+  console.log('获取到的 Canvas 元素:', canvas)
 
   const canvasCtx = canvas.getContext('2d')
-  const headerCanvasCtx = headerCanvas.getContext('2d')
-
-  setHeaderCanvasCtxFn(headerCanvasCtx)
   setCanvasCtxFn(canvasCtx)
 
-  console.log('获取到的 Canvas 上下文:', canvasCtx, headerCanvasCtx)
+  console.log('获取到的 Canvas 上下文:', canvasCtx)
 
   // 设置 Canvas 尺寸
   console.log('开始设置 Canvas 尺寸')
   console.log('canvas.parentElement:', canvas.parentElement)
-  console.log('headerCanvas.parentElement:', headerCanvas.parentElement)
 
   const container = canvas.parentElement ? canvas.parentElement.closest('.canvas-container') : null
-  const headerContainer = headerCanvas.parentElement
-  console.log('获取到的容器元素:', container, headerContainer)
+  console.log('获取到的容器元素:', container)
 
   if (!container) {
     console.log('容器元素未找到')
@@ -243,14 +234,10 @@ export const initializeCanvas = (options) => {
   }
 
   canvas.width = container.clientWidth
-  canvas.height = container.clientHeight - 40 // 减去表头高度（40px）
-  headerCanvas.width = headerContainer.clientWidth
-  headerCanvas.height = 40 // 表头高度设置为40px
+  // 设置canvas的默认高度
+  canvas.height = Math.max(400, container.clientHeight)
 
-  console.log('Canvas 尺寸设置完成', canvas.width, canvas.height, headerCanvas.width, headerCanvas.height)
-
-  // 绘制表头
-  renderHeaderCanvasFn()
+  console.log('Canvas 尺寸设置完成', canvas.width, canvas.height)
 
   // 开始渲染循环
   renderCanvasFn()

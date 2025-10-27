@@ -52,7 +52,7 @@
         <canvas ref="headerCanvasRef" class="header-canvas"></canvas>
       </div>
       <!-- 数据内容 -->
-      <div class="canvas-content">
+      <div class="canvas-content" ref="canvasContentWrapperRef">
         <canvas ref="canvasRef" class="data-canvas"></canvas>
       </div>
     </div>
@@ -104,17 +104,21 @@ import {
   limitArrayLength
 } from '../utils/dataUtils'
 import { 
+  createWebSocket, 
+  sendWebSocketMessage, 
+  getWebSocketStatus, 
+  closeWebSocket,
+  sendDataWithNetworkHandling,
+  WebSocketReconnector,
+  WebSocketHeartbeat,
+  WebSocketDataCache
+} from '../utils/websocketUtils'
+import { 
   renderHeaderCanvas, 
   renderCanvas as renderCanvasUtil, 
   handleCanvasScroll as handleCanvasScrollUtil,
   initializeCanvas as initializeCanvasUtil
 } from '../utils/canvasUtils'
-import { 
-  initWebSocketConnection,
-  disconnectWebSocket,
-  startHeartbeatDetection,
-  handleWebSocketReconnect
-} from '../utils/websocketUtils'
 import { checkNetworkStatus as checkNetworkStatusUtil } from '../utils/networkUtils'
 
 export default {
@@ -130,6 +134,7 @@ export default {
     const listRef = ref(null)
     const canvasRef = ref(null)
     const headerCanvasRef = ref(null)
+    const canvasContentWrapperRef = ref(null)
     
     // 状态管理
     const isConnected = ref(false)
@@ -327,6 +332,11 @@ export default {
       animationFrameId = requestAnimationFrame(renderCanvasLoop)
     }
     
+    // 绘制表头 Canvas
+    const renderHeaderCanvasComponent = () => {
+      renderHeaderCanvas(headerCanvasCtx, headerCanvasRef.value, viewMode.value)
+    }
+    
     // 处理 Canvas 滚动
     const handleCanvasScroll = (event) => {
       handleCanvasScrollUtil(
@@ -396,78 +406,96 @@ export default {
     // 连接到 WebSocket 服务器
     const connect = () => {
       if (isConnected.value || isConnecting.value) return
-
+      
       try {
         isConnecting.value = true
         status.value = '连接中...'
-
-        // 初始化 WebSocket 连接
-        ws = initWebSocketConnection({
-          url: props.wsUrl,
-          state: {
-            isConnecting,
-            isConnected,
-            status,
-            networkStatus,
-            resetDataQualityMetrics
-          },
-          onOpen: () => {
-            // 启动心跳检测
-            startHeartbeat()
+        
+        // 重置数据质量指标
+        resetDataQualityMetrics()
+        
+        // 连接到 WebSocket 服务器
+        ws = createWebSocket(props.wsUrl)
+        
+        // WebSocket 连接成功
+        ws.onopen = () => {
+          isConnecting.value = false
+          isConnected.value = true
+          status.value = '已连接'
+          networkStatus.value = 'online'
+          reconnectConfig.reset()
+          
+          // 启动心跳检测
+          startHeartbeat()
+          
+          // 启动缓存数据处理
+          startCacheProcessing()
+          
+          // 停止模拟数据推送（如果正在运行）
+          stopSimulation()
+        }
+        
+        // WebSocket 接收消息
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
             
-            // 启动缓存数据处理
-            startCacheProcessing()
-            
-            // 停止模拟数据推送（如果正在运行）
-            stopSimulation()
-          },
-          onMessage: (event) => {
-            try {
-              const data = JSON.parse(event.data)
-              
-              // 如果是心跳响应，直接返回
-              if (data.type === 'heartbeat') {
-                console.log('收到心跳响应')
-                return
-              }
-              
-              // 处理数据消息
-              if (data.type === 'data') {
-                const payload = data.payload
-                
-                // 更新实时性指标
-                const now = Date.now()
-                realTimeDelay.value = calculateRealTimeDelay(payload.timestamp)
-                
-                // 发送数据（处理弱网环境）
-                sendData(payload)
-              }
-              
-              // 处理控制消息
-              if (data.type === 'control') {
-                if (data.command === 'simulationStarted') {
-                  isSimulating.value = true
-                  status.value = '正在接收模拟数据...'
-                } else if (data.command === 'simulationStopped') {
-                  isSimulating.value = false
-                  status.value = '模拟已停止'
-                }
-              }
-            } catch (error) {
-              console.error('解析 WebSocket 消息失败:', error)
-              status.value = `数据解析错误: ${error.message}`
+            // 如果是心跳响应，直接返回
+            if (data.type === 'heartbeat') {
+              console.log('收到心跳响应')
+              return
             }
-          },
-          onError: (error) => {
-            handleReconnect()
-          },
-          onClose: (event) => {
-            handleReconnect()
-          },
-          heartbeatManager,
-          reconnectConfig,
-          dataCache
-        })
+            
+            // 处理数据消息
+            if (data.type === 'data') {
+              const payload = data.payload
+              
+              // 更新实时性指标
+              const now = Date.now()
+              realTimeDelay.value = calculateRealTimeDelay(payload.timestamp)
+              
+              // 发送数据（处理弱网环境）
+              sendData(payload)
+            }
+            
+            // 处理控制消息
+            if (data.type === 'control') {
+              if (data.command === 'simulationStarted') {
+                isSimulating.value = true
+                status.value = '正在接收模拟数据...'
+              } else if (data.command === 'simulationStopped') {
+                isSimulating.value = false
+                status.value = '模拟已停止'
+              }
+            }
+          } catch (error) {
+            console.error('解析 WebSocket 消息失败:', error)
+            status.value = `数据解析错误: ${error.message}`
+          }
+        }
+        
+        // WebSocket 连接错误
+        ws.onerror = (error) => {
+          isConnecting.value = false
+          status.value = `连接错误: ${error.message}`
+          networkStatus.value = 'offline'
+          handleReconnect()
+        }
+        
+        // WebSocket 连接关闭
+        ws.onclose = (event) => {
+          isConnected.value = false
+          isConnecting.value = false
+          
+          if (event.wasClean) {
+            status.value = `连接已关闭: ${event.code} ${event.reason}`
+          } else {
+            status.value = '连接意外断开'
+          }
+          
+          networkStatus.value = 'offline'
+          handleReconnect()
+        }
       } catch (error) {
         isConnecting.value = false
         status.value = `连接失败: ${error.message}`
@@ -478,40 +506,36 @@ export default {
     
     // 断开 WebSocket 连接
     const disconnect = () => {
-      disconnectWebSocket({
-        ws,
-        state: {
-          isConnected,
-          isConnecting,
-          status,
-          networkStatus
-        },
-        stopSimulation,
-        stopHeartbeat,
-        stopCacheProcessing,
-        reconnectConfig
-      })
+      closeWebSocket(ws)
       ws = null
+      
+      isConnected.value = false
+      isConnecting.value = false
+      status.value = '已断开'
+      networkStatus.value = 'offline'
+      stopSimulation()
+      stopHeartbeat()
+      stopCacheProcessing()
+      reconnectConfig.reset()
     }
     
     // 启动心跳检测
     const startHeartbeat = () => {
-      startHeartbeatDetection({
-        ws,
-        heartbeatManager,
-        sendHeartbeat: () => {
+      stopHeartbeat()
+      heartbeatManager.start(ws, 
+        () => {
           // 发送心跳包
           sendWebSocketMessage(ws, { type: 'heartbeat' })
           console.log('发送心跳包')
         },
-        onTimeout: () => {
+        () => {
           // 心跳超时处理
           if (isConnected.value) {
             // 模拟网络状态变化
             checkNetworkStatus()
           }
         }
-      })
+      )
     }
     
     // 停止心跳检测
@@ -521,14 +545,17 @@ export default {
     
     // 处理重连
     const handleReconnect = () => {
-      handleWebSocketReconnect({
-        connectFn: connect,
-        state: {
-          status,
-          networkStatus
+      reconnectConfig.attemptReconnect(
+        () => connect(),
+        (currentRetries, maxRetries) => {
+          status.value = `连接断开，${reconnectConfig.retryDelay/1000}秒后尝试重连 (${currentRetries}/${maxRetries})`
+          networkStatus.value = 'offline'
         },
-        reconnectConfig
-      })
+        () => {
+          status.value = '连接失败，已达到最大重试次数'
+          networkStatus.value = 'offline'
+        }
+      )
     }
     
     // 启动缓存数据处理
@@ -675,7 +702,7 @@ export default {
           headerCanvas.height = 40 // 表头高度设置为40px
           
           // 重新绘制
-          renderHeaderCanvas(headerCanvasCtx, headerCanvas, viewMode.value)
+          renderHeaderCanvasComponent()
           renderCanvas()
         }
       }
@@ -705,6 +732,8 @@ export default {
     return {
       listRef,
       canvasRef,
+      headerCanvasRef,
+      canvasContentWrapperRef,
       isConnected,
       isConnecting,
       isSimulating,

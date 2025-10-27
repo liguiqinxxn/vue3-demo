@@ -314,68 +314,56 @@ export class WebSocketDataCache {
 }
 
 /**
- * 初始化 WebSocket 连接
+ * 连接 WebSocket 并处理事件
  * @param {Object} options - 连接选项
  * @param {string} options.url - WebSocket 服务器地址
  * @param {Object} options.state - 组件状态对象
- * @param {Function} options.onOpen - 连接成功回调
+ * @param {Function} options.onOpen - 连接打开回调
  * @param {Function} options.onMessage - 消息接收回调
- * @param {Function} options.onError - 连接错误回调
  * @param {Function} options.onClose - 连接关闭回调
- * @param {Object} options.heartbeatManager - 心跳管理器
- * @param {Object} options.reconnectConfig - 重连配置
- * @param {Object} options.dataCache - 数据缓存管理器
+ * @param {Function} options.onError - 错误处理回调
  * @returns {WebSocket} WebSocket 实例
  */
-export const initWebSocketConnection = (options) => {
+export const connectWebSocket = (options) => {
   const {
     url,
     state,
     onOpen,
     onMessage,
-    onError,
     onClose,
-    heartbeatManager,
-    reconnectConfig,
-    dataCache
+    onError
   } = options
 
-  // 重置数据质量指标
-  if (state.resetDataQualityMetrics) {
-    state.resetDataQualityMetrics()
-  }
+  const ws = new WebSocket(url)
 
-  // 创建 WebSocket 连接
-  const ws = createWebSocket(url)
-
-  // WebSocket 连接成功
-  ws.onopen = () => {
-    state.isConnecting.value = false
+  // WebSocket 连接打开
+  ws.onopen = (event) => {
     state.isConnected.value = true
+    state.isConnecting.value = false
     state.status.value = '已连接'
     state.networkStatus.value = 'online'
-    reconnectConfig.reset()
 
     if (onOpen) {
-      onOpen()
+      onOpen(event)
     }
   }
 
-  // WebSocket 接收消息
+  // WebSocket 消息接收
   ws.onmessage = (event) => {
+    const data = JSON.parse(event.data)
+
     if (onMessage) {
-      onMessage(event)
+      onMessage(data)
     }
   }
 
-  // WebSocket 连接错误
-  ws.onerror = (error) => {
-    state.isConnecting.value = false
-    state.status.value = `连接错误: ${error.message}`
+  // WebSocket 错误处理
+  ws.onerror = (event) => {
+    state.status.value = `连接错误: ${event.message}`
     state.networkStatus.value = 'offline'
-    
+
     if (onError) {
-      onError(error)
+      onError(event)
     }
   }
 
