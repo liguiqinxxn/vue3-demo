@@ -99,10 +99,14 @@ export const sendDataWithNetworkHandling = (options) => {
     if (ws && ws.readyState === WebSocket.OPEN) {
       sendWebSocketMessageFn(ws, { type: 'data', payload: data })
       if (validateDataFn(data)) {
-        updateDataFn(data)
+        // 添加标志防止递归调用
+        if (!data._processed) {
+          data._processed = true
+          updateDataFn(data)
 
-        // 限制最大数据点数量以保持性能
-        // 注意：这里需要在调用时传入完整的数据数组进行限制
+          // 限制最大数据点数量以保持性能
+          // 注意：这里需要在调用时传入完整的数据数组进行限制
+        }
       }
     }
     return
@@ -114,10 +118,14 @@ export const sendDataWithNetworkHandling = (options) => {
     sendWebSocketMessageFn(ws, { type: 'data', payload: data })
 
     if (validateDataFn(data)) {
-      updateDataFn(data)
+      // 添加标志防止递归调用
+      if (!data._processed) {
+        data._processed = true
+        updateDataFn(data)
 
-      // 限制最大数据点数量以保持性能
-      // 注意：这里需要在调用时传入完整的数据数组进行限制
+        // 限制最大数据点数量以保持性能
+        // 注意：这里需要在调用时传入完整的数据数组进行限制
+      }
     }
 
     // 如果缓存队列中有数据，也一起处理
@@ -131,10 +139,14 @@ export const sendDataWithNetworkHandling = (options) => {
       for (const item of batch) {
         sendWebSocketMessageFn(ws, { type: 'data', payload: item })
         if (validateDataFn(item)) {
-          updateDataFn(item)
+          // 添加标志防止递归调用
+          if (!item._processed) {
+            item._processed = true
+            updateDataFn(item)
 
-          // 限制最大数据点数量以保持性能
-          // 注意：这里需要在调用时传入完整的数据数组进行限制
+            // 限制最大数据点数量以保持性能
+            // 注意：这里需要在调用时传入完整的数据数组进行限制
+          }
         }
       }
     }
@@ -311,168 +323,4 @@ export class WebSocketDataCache {
   get length() {
     return this.cache.length
   }
-}
-
-/**
- * 连接 WebSocket 并处理事件
- * @param {Object} options - 连接选项
- * @param {string} options.url - WebSocket 服务器地址
- * @param {Object} options.state - 组件状态对象
- * @param {Function} options.onOpen - 连接打开回调
- * @param {Function} options.onMessage - 消息接收回调
- * @param {Function} options.onClose - 连接关闭回调
- * @param {Function} options.onError - 错误处理回调
- * @returns {WebSocket} WebSocket 实例
- */
-export const connectWebSocket = (options) => {
-  const {
-    url,
-    state,
-    onOpen,
-    onMessage,
-    onClose,
-    onError
-  } = options
-
-  const ws = new WebSocket(url)
-
-  // WebSocket 连接打开
-  ws.onopen = (event) => {
-    state.isConnected.value = true
-    state.isConnecting.value = false
-    state.status.value = '已连接'
-    state.networkStatus.value = 'online'
-
-    if (onOpen) {
-      onOpen(event)
-    }
-  }
-
-  // WebSocket 消息接收
-  ws.onmessage = (event) => {
-    const data = JSON.parse(event.data)
-
-    if (onMessage) {
-      onMessage(data)
-    }
-  }
-
-  // WebSocket 错误处理
-  ws.onerror = (event) => {
-    state.status.value = `连接错误: ${event.message}`
-    state.networkStatus.value = 'offline'
-
-    if (onError) {
-      onError(event)
-    }
-  }
-
-  // WebSocket 连接关闭
-  ws.onclose = (event) => {
-    state.isConnected.value = false
-    state.isConnecting.value = false
-
-    if (event.wasClean) {
-      state.status.value = `连接已关闭: ${event.code} ${event.reason}`
-    } else {
-      state.status.value = '连接意外断开'
-    }
-
-    state.networkStatus.value = 'offline'
-    
-    if (onClose) {
-      onClose(event)
-    }
-  }
-
-  return ws
-}
-
-/**
- * 断开 WebSocket 连接
- * @param {Object} options - 断开连接选项
- * @param {WebSocket} options.ws - WebSocket 实例
- * @param {Object} options.state - 组件状态对象
- * @param {Function} options.stopSimulation - 停止模拟函数
- * @param {Function} options.stopHeartbeat - 停止心跳检测函数
- * @param {Function} options.stopCacheProcessing - 停止缓存处理函数
- * @param {Object} options.reconnectConfig - 重连配置
- */
-export const disconnectWebSocket = (options) => {
-  const {
-    ws,
-    state,
-    stopSimulation,
-    stopHeartbeat,
-    stopCacheProcessing,
-    reconnectConfig
-  } = options
-
-  closeWebSocket(ws)
-
-  state.isConnected.value = false
-  state.isConnecting.value = false
-  state.status.value = '已断开'
-  state.networkStatus.value = 'offline'
-  
-  if (stopSimulation) {
-    stopSimulation()
-  }
-  
-  if (stopHeartbeat) {
-    stopHeartbeat()
-  }
-  
-  if (stopCacheProcessing) {
-    stopCacheProcessing()
-  }
-  
-  reconnectConfig.reset()
-}
-
-/**
- * 启动心跳检测
- * @param {Object} options - 心跳检测选项
- * @param {WebSocket} options.ws - WebSocket 实例
- * @param {Object} options.heartbeatManager - 心跳管理器
- * @param {Function} options.sendHeartbeat - 发送心跳包函数
- * @param {Function} options.onTimeout - 心跳超时回调
- */
-export const startHeartbeatDetection = (options) => {
-  const {
-    ws,
-    heartbeatManager,
-    sendHeartbeat,
-    onTimeout
-  } = options
-
-  heartbeatManager.stop()
-  heartbeatManager.start(ws, sendHeartbeat, onTimeout)
-}
-
-/**
- * 处理 WebSocket 重连
- * @param {Object} options - 重连选项
- * @param {Function} options.connectFn - 连接函数
- * @param {Object} options.state - 组件状态对象
- * @param {Object} options.reconnectConfig - 重连配置
- */
-export const handleWebSocketReconnect = (options) => {
-  const {
-    connectFn,
-    state,
-    reconnectConfig
-  } = options
-
-  reconnectConfig.attemptReconnect(
-    connectFn,
-    (currentRetries, maxRetries) => {
-      state.status.value = `连接断开，${reconnectConfig.retryDelay/1000}秒后尝试重连 (${currentRetries}/${maxRetries})`
-      state.networkStatus.value = 'offline'
-    },
-    () => {
-      state.status.value = '连接失败，已达到最大重试次数'
-      state.networkStatus.value = 'offline'
-    }
-  )
 }

@@ -310,7 +310,7 @@ export default {
         setHeaderCanvasCtxFn: (ctx) => { headerCanvasCtx = ctx },
         setCanvasCtxFn: (ctx) => { canvasCtx = ctx },
         renderHeaderCanvasFn: () => {
-          renderHeaderCanvasComponent()
+          renderHeaderCanvas(headerCanvasCtx, headerCanvas, viewMode.value)
         },
         renderCanvasFn: () => {
           // 启动渲染循环
@@ -332,7 +332,7 @@ export default {
     }
     
     // 绘制表头 Canvas
-    const renderHeaderCanvasComponent = () => {
+    const renderHeaderCanvas = () => {
       renderHeaderCanvas(headerCanvasCtx, headerCanvasRef.value, viewMode.value)
     }
     
@@ -701,7 +701,7 @@ export default {
           headerCanvas.height = 40 // 表头高度设置为40px
           
           // 重新绘制
-          renderHeaderCanvasComponent()
+          renderHeaderCanvas()
           renderCanvas()
         }
       }
@@ -916,13 +916,13 @@ export default {
 
 .canvas-content {
   flex: 1;
-  overflow: hidden;
+  overflow: auto; /* 改为auto以支持滚动 */
   position: relative;
+  min-height: 0; /* 允许内容区域收缩 */
 }
 
 .data-canvas {
   width: 100%;
-  height: 100%;
   display: block;
   cursor: default;
 }
