@@ -194,9 +194,6 @@ export default {
     // WebSocket 相关
     let ws = null
     let simulationTimer = null
-    // let reconnectTimer = null  // 已移至 WebSocketReconnector 中管理
-    // let heartbeatTimer = null  // 已移至 WebSocketHeartbeat 中管理
-    // let cacheProcessTimer = null  // 已移至 WebSocketDataCache 中管理
     
     // 重连配置
     const reconnectConfig = new WebSocketReconnector({
