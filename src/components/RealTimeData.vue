@@ -332,7 +332,7 @@ export default {
     }
     
     // 绘制表头 Canvas
-    const renderHeaderCanvas = () => {
+    const renderHeaderCanvasInternal = () => {
       renderHeaderCanvas(headerCanvasCtx, headerCanvasRef.value, viewMode.value)
     }
     
@@ -701,7 +701,7 @@ export default {
           headerCanvas.height = 40 // 表头高度设置为40px
           
           // 重新绘制
-          renderHeaderCanvas()
+          renderHeaderCanvasInternal()
           renderCanvas()
         }
       }
