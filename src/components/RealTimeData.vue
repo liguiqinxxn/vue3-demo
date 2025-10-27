@@ -362,6 +362,19 @@ export default {
       // 如果 Canvas 已初始化，触发重新渲染
       if (canvasCtx) {
         renderCanvas()
+        
+        // 更新Canvas高度以匹配数据量
+        if (canvasRef.value) {
+          // 每行高度为60px，根据数据量设置Canvas高度
+          const totalHeight = canvasData.length * 60
+          canvasRef.value.height = totalHeight
+          
+          // 如果有容器引用，同时更新容器的滚动高度
+          const canvasContent = canvasRef.value.parentElement
+          if (canvasContent) {
+            canvasContent.style.height = Math.min(totalHeight, 400) + 'px' // 限制最大高度为400px
+          }
+        }
       }
     }
     
@@ -696,12 +709,14 @@ export default {
           const container = canvas.parentElement.closest('.canvas-container')
           const headerContainer = headerCanvas.parentElement
           canvas.width = container.clientWidth
-          canvas.height = container.clientHeight - 40 // 减去表头高度（40px）
+          // 根据数据量动态设置Canvas高度
+          const totalHeight = canvasData.length * 60
+          canvas.height = Math.max(totalHeight, container.clientHeight - 40) // 至少保持容器高度减去表头
           headerCanvas.width = headerContainer.clientWidth
           headerCanvas.height = 40 // 表头高度设置为40px
           
           // 重新绘制
-          renderHeaderCanvasInternal()
+          renderHeaderCanvas()
           renderCanvas()
         }
       }
