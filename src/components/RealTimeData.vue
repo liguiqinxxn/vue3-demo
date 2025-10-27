@@ -119,6 +119,7 @@ import {
   handleCanvasScroll as handleCanvasScrollUtil,
   initializeCanvas as initializeCanvasUtil
 } from '../utils/canvasUtils'
+import { checkNetworkStatus as checkNetworkStatusUtil } from '../utils/networkUtils'
 
 export default {
   name: 'RealTimeData',
@@ -366,20 +367,14 @@ export default {
     
     // 模拟网络状态检测
     const checkNetworkStatus = () => {
-      // 在实际应用中，可以通过 navigator.connection 或其他方式检测网络状态
-      // 这里我们模拟不同的网络状态
-      const statuses = ['online', 'weak', 'offline']
-      networkStatus.value = statuses[Math.floor(Math.random() * statuses.length)]
-      
-      // 根据网络状态调整数据质量指标
-      const metrics = {
-        dataAccuracy: dataAccuracy.value,
-        realTimeDelay: realTimeDelay.value
-      }
-      
-      const updatedMetrics = adjustDataQualityByNetwork(networkStatus.value, metrics)
-      dataAccuracy.value = updatedMetrics.dataAccuracy
-      realTimeDelay.value = updatedMetrics.realTimeDelay
+      checkNetworkStatusUtil({
+        getNetworkStatus: () => networkStatus.value,
+        setNetworkStatus: (status) => { networkStatus.value = status },
+        getDataAccuracy: () => dataAccuracy.value,
+        setDataAccuracy: (accuracy) => { dataAccuracy.value = accuracy },
+        getRealTimeDelay: () => realTimeDelay.value,
+        setRealTimeDelay: (delay) => { realTimeDelay.value = delay }
+      })
     }
     
     // 验证数据准确性
