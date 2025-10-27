@@ -327,11 +327,6 @@ export default {
       animationFrameId = requestAnimationFrame(renderCanvasLoop)
     }
     
-    // 绘制表头 Canvas
-    const renderHeaderCanvas = () => {
-      renderHeaderCanvas(headerCanvasCtx, headerCanvasRef.value, viewMode.value)
-    }
-    
     // 处理 Canvas 滚动
     const handleCanvasScroll = (event) => {
       handleCanvasScrollUtil(
@@ -680,7 +675,7 @@ export default {
           headerCanvas.height = 40 // 表头高度设置为40px
           
           // 重新绘制
-          renderHeaderCanvas()
+          renderHeaderCanvas(headerCanvasCtx, headerCanvas, viewMode.value)
           renderCanvas()
         }
       }
